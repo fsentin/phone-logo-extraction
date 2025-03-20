@@ -1,6 +1,6 @@
 import sys
 from utils.html_parser import fetch_and_parse_html
-from utils import PhoneExtractor, LogoExtractor
+from utils.extractors import PhoneExtractor, LogoExtractor
 
 def main(url):
     try:
