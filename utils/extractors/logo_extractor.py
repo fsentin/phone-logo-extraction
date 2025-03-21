@@ -4,6 +4,9 @@ from urllib.parse import urljoin, urlparse
 import os
 from fuzzywuzzy import fuzz
 import tldextract
+import base64
+from io import BytesIO
+from PIL import Image
 
 class LogoExtractor(BaseExtractor):
     """
@@ -26,7 +29,19 @@ class LogoExtractor(BaseExtractor):
             if not image.has_attr('src'):
                 continue
             src = image['src']
-            src = self.resolve_image_url(src, base_url)
+
+            if src.startswith('data:image/'):
+                try:
+                    base64_data = src.split(',')[1]
+                    decoded_bytes = base64.b64decode(base64_data)
+                    image_bytes = BytesIO(decoded_bytes)
+                    img = Image.open(image_bytes)
+                    image_name = 'base64_image'
+                except:
+                    sys.stderr.write(f"Error: processing base64 image: {src}\n")
+                    continue
+            else:
+                src = self.resolve_image_url(src, base_url)
                 
             image_name = os.path.basename(src).lower() if src != 'base64_image' else 'base64_image'
             alt_text = image.get('alt', '').lower()
@@ -57,7 +72,7 @@ class LogoExtractor(BaseExtractor):
             score += domain_importance
         if domain_name in alt_text:
             score += domain_importance
-            
+
         if "logo" in image_name:
             score += logo_importance
         if "logo" in alt_text:
