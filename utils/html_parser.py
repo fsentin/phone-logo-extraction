@@ -21,4 +21,4 @@ def fetch_and_parse_html(url):
         return soup, base_url
     
     except Exception as e:
-        raise Exception(f"failed to fetch or parse {e}")
+        raise Exception(f"Failed to fetch or parse given website {e}")

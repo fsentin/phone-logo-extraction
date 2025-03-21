@@ -3,30 +3,33 @@ from utils.html_parser import fetch_and_parse_html
 from utils.extractors import PhoneExtractor, LogoExtractor
 
 def main(url):
-    try:
-        soup, base_url = fetch_and_parse_html(url)
-        
-        extractors = [
-            PhoneExtractor(),
-            LogoExtractor(),
-        ]
-        
-        results = []
-        for extractor in extractors:
-            result = extractor.extract(soup, base_url)
-            if result:
-                if isinstance(result, list):
-                    results.append(', '.join(result))
-                else:
-                    results.append(result)
-            else:
-                results.append('None')
-        
-        for result in results:
-            print(result)
     
-    except Exception as e:
-        sys.stderr.write(f"Error: {e}")
+    soup, base_url = fetch_and_parse_html(url)
+
+    if soup is None or base_url is None:
+        sys.stderr.write("Error: Failed to fetch or parse the HTML.\n")
+        sys.exit(1)
+        
+    extractors = [
+        PhoneExtractor(),
+        LogoExtractor(),
+    ]
+        
+    results = []
+    for extractor in extractors:
+        result = extractor.extract(soup, base_url)
+        if result:
+            if isinstance(result, list):
+                results.append(', '.join(result))
+            else:
+                results.append(result)
+        else:
+            results.append('None')
+        
+    for result in results:
+        print(result)
+    
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:

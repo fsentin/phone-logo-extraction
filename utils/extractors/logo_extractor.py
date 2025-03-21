@@ -11,49 +11,35 @@ class LogoExtractor(BaseExtractor):
     """
 
     def extract(self, soup, base_url):
-    
+
         images = soup.find_all('img')
 
         if images.__len__() == 0:
             sys.stderr.write("Error: no images found in the webpage")
             return None
-
-         # Extract domain name from base URL using tldextract
-        parsed_base_url = urlparse(base_url)
-        extracted = tldextract.extract(parsed_base_url.netloc)
-
-        print(extracted)
-
-        # Ensure we extract only the second-level domain (SLD)
-        domain_name = extracted.domain.lower()
-        
+    
+        domain_name = self.extract_domain(base_url)
         print(domain_name)
 
         candidates = []
         for image in images:
-            if image.has_attr('src'):
-                src = image['src']
+            if not image.has_attr('src'):
+                continue
+            src = image['src']
+            src = self.resolve_image_url(src, base_url)
                 
-                # Handle protocol-relative URLs
-                if src.startswith('//'):
-                # Add the protocol from the base URL
-                    src = f"{parsed_base_url.scheme}:{src}"
-                elif src.startswith('/'):
-                    # Convert relative URL to absolute
-                    src = urljoin(base_url, src)
-                elif not src.startswith('http'):
-                    # Handle relative paths without leading slash
-                    src = urljoin(base_url, src)
-                
-                image_name = os.path.basename(src).lower()
-                print(image_name)
+            image_name = os.path.basename(src).lower() if src != 'base64_image' else 'base64_image'
+            alt_text = image.get('alt', '').lower()
 
-                score = self.score_image_name(image_name, domain_name)
-                candidates.append((src, score))
+            print(image_name)
+            print(alt_text)
+
+            score = self.score_image_name(image_name, alt_text, domain_name)
+            candidates.append((src, score))
         
         print(candidates)
         
-        if candidates.__len__ == 0:
+        if len(candidates) == 0:
             sys.stderr.write("Error: no logos found in the webpage")
             return None
         
@@ -62,16 +48,42 @@ class LogoExtractor(BaseExtractor):
         return candidates[0][0]
     
 
-    def score_image_name(self, image_name, domain_name, domain_importance=110, logo_importance=105):
+    def score_image_name(self, image_name, alt_text, domain_name, domain_importance=110, logo_importance=105):
         """
         Scores the image name based on the domain and logo importance, with a fallback to fuzzy matching, if no match is found.
         """
-        domain_match = domain_importance if domain_name in image_name else 0
-        logo_match = logo_importance if "logo" in image_name else 0 
-
-        score = domain_match + logo_match
+        score = 0
+        if domain_name in image_name:
+            score += domain_importance
+        if domain_name in alt_text:
+            score += domain_importance
+            
+        if "logo" in image_name:
+            score += logo_importance
+        if "logo" in alt_text:
+            score += logo_importance
         
-        if not score:
+        if score == 0:
             score = fuzz.partial_ratio(domain_name.lower(), image_name)
 
         return score
+    
+    def extract_domain(self, base_url):
+        """
+        Extract the domain name from the base URL using tldextract.
+        """
+        parsed_base_url = urlparse(base_url)
+        extracted = tldextract.extract(parsed_base_url.netloc)
+        return extracted.domain.lower()
+    
+    def resolve_image_url(self, src, base_url):
+        """
+        Resolves relative image URLs to absolute URLs.
+        """
+        # Handle protocol-relative URLs
+        if src.startswith('//'):
+            src = f"{urlparse(base_url).scheme}:{src}"
+        elif src.startswith('/') or not src.startswith('http'):
+            # Convert relative URL to absolute
+            src = urljoin(base_url, src)
+        return src
