@@ -59,8 +59,11 @@ class PhoneExtractor(BaseExtractor):
         """
         if not phone_number:
             return ""
-        # remove any character that is not a number, plus sign, or parenthesis
-        return re.sub(r'[^0-9+\(\)\- ]', '', phone_number).strip()
+        
+        cleaned = re.sub(r'[^0-9+\(\)\- ]', '', phone_number).strip()
+        return re.sub(r'-', ' ', cleaned)
+        
+    
 
     def _extract_phone_numbers_from_text(self, text):
         
@@ -167,6 +170,6 @@ class PhoneExtractor(BaseExtractor):
             # deduplication
             digits_only = re.sub(r'\D', '', number)
             if digits_only:
-                normalized_map[digits_only] = number
+                normalized_map[digits_only] = self._clean_phone_number(number)
         
         return list(normalized_map.values())
