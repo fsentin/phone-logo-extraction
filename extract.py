@@ -29,7 +29,6 @@ def main(url):
         print(result)
     
 
-
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.stderr.write(f"Error: Invalid argument input\nExpected input format: python extract.py <input_url>\n")
