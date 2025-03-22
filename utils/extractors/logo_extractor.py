@@ -1,6 +1,6 @@
 import sys
 from .base_extractor import BaseExtractor
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, quote
 import os
 from fuzzywuzzy import fuzz
 import tldextract
@@ -10,22 +10,44 @@ from PIL import Image
 
 class LogoExtractor(BaseExtractor):
     """
-    Extractor to find logos from webpages.
+    Extractor to find most prominent logo from webpage parsed with BeautifulSoup.
+
+    Found logos are scored heuristically and the one with the highest score is returned.
     """
 
     def extract(self, soup, base_url):
 
-        images = soup.find_all('img')
+        if soup is None:
+            sys.stderr.write("Error: unable to extract from invalid soup\n")
+            sys.exit(1)
 
-        if images.__len__() == 0:
+        candidates = []
+
+        # Checking <link> tags for logos
+        link_tags = soup.find_all("link", rel=True)
+
+        for tag in link_tags:
+            rel_value = tag.get("rel", [""])[0].lower()
+        
+        if "icon" in rel_value or "logo" in rel_value:
+            if tag.has_attr("href"):
+                print("...LINK TAG")
+                logo_url = self.resolve_image_url(tag["href"], base_url)
+                print(logo_url)
+                candidates.append((logo_url, 150))  # High priority
+
+        # Checking <img> tags for logos
+        image_tags = soup.find_all('img')
+        print(image_tags)
+
+        if image_tags.__len__() == 0:
             sys.stderr.write("Error: no images found in the webpage")
             return None
     
         domain_name = self.extract_domain(base_url)
-        print(domain_name)
-
-        candidates = []
-        for image in images:
+        #print(f"...DOMAIN {domain_name}")
+        
+        for image in image_tags:
             if not image.has_attr('src'):
                 continue
             src = image['src']
@@ -42,24 +64,27 @@ class LogoExtractor(BaseExtractor):
                     continue
             else:
                 src = self.resolve_image_url(src, base_url)
+                src = quote(src, safe=":/")  # Encode spaces and special characters
                 
             image_name = os.path.basename(src).lower() if src != 'base64_image' else 'base64_image'
             alt_text = image.get('alt', '').lower()
 
-            print(image_name)
-            print(alt_text)
+            #print(f"...IMG NAME {image_name} - ALT {alt_text}")
+
 
             score = self.score_image_name(image_name, alt_text, domain_name)
             candidates.append((src, score))
         
-        print(candidates)
         
         if len(candidates) == 0:
             sys.stderr.write("Error: no logos found in the webpage")
             return None
         
+        
         candidates.sort(key=lambda x: x[1], reverse=True)
         
+        print(candidates)
+
         return candidates[0][0]
     
 
@@ -95,10 +120,8 @@ class LogoExtractor(BaseExtractor):
         """
         Resolves relative image URLs to absolute URLs.
         """
-        # Handle protocol-relative URLs
         if src.startswith('//'):
             src = f"{urlparse(base_url).scheme}:{src}"
         elif src.startswith('/') or not src.startswith('http'):
-            # Convert relative URL to absolute
             src = urljoin(base_url, src)
         return src

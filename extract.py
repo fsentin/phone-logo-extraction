@@ -7,7 +7,6 @@ def main(url):
     soup, base_url = fetch_and_parse_html(url)
 
     if soup is None or base_url is None:
-        sys.stderr.write("Error: Failed to fetch or parse the HTML.\n")
         sys.exit(1)
         
     extractors = [
